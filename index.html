@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Capacity">
+<title>Ken Bray - Workload Monitor</title>
+<style>
+  * { -webkit-box-sizing: border-box; box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background: #001d36; color: #fff; overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: rgba(0,0,0,0);
+  }
+  .board { display: -webkit-box; display: -webkit-flex; display: flex; height: 100%; width: 100%; }
+
+  .status {
+    -webkit-box-flex: 1.25; -webkit-flex: 1.25; flex: 1.25;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+    -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between;
+    padding: 4.5vh 4vw; background: #2BB673; position: relative;
+    -webkit-transition: background .5s; transition: background .5s;
+  }
+  .who { font-size: 2.6vh; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; opacity: .85; }
+  .label { font-size: 11vh; font-weight: 800; line-height: .95; letter-spacing: -.02em; }
+  .sub { font-size: 3.6vh; font-weight: 500; line-height: 1.3; margin-top: 2.5vh; opacity: .95; max-width: 90%; }
+
+  .meter { display: -webkit-box; display: -webkit-flex; display: flex; margin-bottom: 1.5vh; }
+  .seg { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; height: 2.4vh; margin-right: .8vw; border-radius: 1.2vh; background: rgba(255,255,255,.28); }
+  .seg:last-child { margin-right: 0; }
+  .seg.on { background: #fff; }
+  .meter-cap { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: justify; -webkit-justify-content: space-between; justify-content: space-between; font-size: 2vh; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; opacity: .85; }
+
+  .info {
+    -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; background: #003057; padding: 4.5vh 3.5vw;
+    display: -webkit-box; display: -webkit-flex; display: flex;
+    -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column;
+  }
+  .clock { font-size: 7vh; font-weight: 700; line-height: 1; }
+  .date { font-size: 2.6vh; opacity: .7; margin-top: .8vh; }
+  .block { margin-top: 3.6vh; }
+  .k { font-size: 1.9vh; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #FF4614; margin-bottom: 1vh; }
+  .v { font-size: 3.2vh; font-weight: 600; line-height: 1.3; }
+  .v.big { font-size: 6vh; font-weight: 800; line-height: 1; }
+  .v small { font-size: 2.4vh; font-weight: 500; opacity: .7; }
+  ul.focus { list-style: none; }
+  ul.focus li { font-size: 3vh; font-weight: 600; line-height: 1.3; padding-left: 2.2vh; position: relative; margin-bottom: .6vh; }
+  ul.focus li:before { content: ""; position: absolute; left: 0; top: 1.4vh; width: 1vh; height: 1vh; border-radius: 50%; background: #FF4614; }
+  .row { display: -webkit-box; display: -webkit-flex; display: flex; }
+  .row .block { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+  .note { margin-top: auto; padding-top: 3vh; border-top: 1px solid rgba(255,255,255,.15); font-size: 2.6vh; line-height: 1.35; opacity: .9; }
+  .updated { font-size: 1.8vh; opacity: .5; margin-top: 1.2vh; }
+
+  .gear {
+    position: absolute; right: 1.6vw; top: 2.6vh; width: 6vh; height: 6vh; border-radius: 50%;
+    background: rgba(0,0,0,.15); color: #fff; font-size: 3.2vh; line-height: 6vh; text-align: center; opacity: .55;
+  }
+
+  .editor { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,15,30,.92); display: none; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .editor.open { display: block; }
+  .panel { max-width: 760px; margin: 3vh auto; background: #fff; color: #102030; border-radius: 16px; padding: 24px 28px; }
+  .panel h2 { font-size: 22px; margin-bottom: 14px; color: #003057; }
+  .panel label { display: block; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #5a6a7a; margin: 16px 0 6px; }
+  .levels { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-flex-wrap: wrap; flex-wrap: wrap; }
+  .lvl { -webkit-box-flex: 1; -webkit-flex: 1 1 30%; flex: 1 1 30%; margin: 0 8px 8px 0; padding: 14px 10px; border-radius: 10px; color: #fff; font-weight: 700; font-size: 16px; text-align: center; border: 4px solid transparent; }
+  .lvl.sel { border-color: #102030; }
+  .panel input, .panel textarea {
+    width: 100%; font-size: 17px; padding: 10px 12px; border: 1px solid #c6d0da; border-radius: 8px; font-family: inherit; color: #102030; background: #fff;
+    -webkit-appearance: none; -webkit-user-select: text; user-select: text;
+  }
+  .panel textarea { height: 64px; resize: none; }
+  .panel #f-focus { height: 96px; }
+  @media (orientation: portrait) {
+    .board { -webkit-box-orient: vertical; -webkit-flex-direction: column; flex-direction: column; }
+    .status { -webkit-box-flex: 1.1; -webkit-flex: 1.1; flex: 1.1; }
+    .label { font-size: 9vh; }
+    .sub { font-size: 2.8vh; }
+    .who, .meter-cap { font-size: 1.8vh; }
+    .clock { font-size: 5vh; }
+    .block { margin-top: 2.4vh; }
+  }
+  .half { display: -webkit-box; display: -webkit-flex; display: flex; }
+  .half > div { -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; }
+  .half > div:first-child { margin-right: 12px; }
+  .stepper { display: -webkit-box; display: -webkit-flex; display: flex; }
+  .stepper button { width: 52px; font-size: 22px; font-weight: 700; border: 1px solid #c6d0da; background: #eef2f6; color: #003057; border-radius: 8px; }
+  .stepper input { text-align: center; margin: 0 6px; }
+  .actions { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: end; -webkit-justify-content: flex-end; justify-content: flex-end; margin-top: 22px; }
+  .btn { padding: 12px 22px; font-size: 16px; font-weight: 700; border-radius: 8px; border: 0; margin-left: 10px; font-family: inherit; }
+  .btn.save { background: #FF4614; color: #fff; }
+  .btn.cancel { background: #eef2f6; color: #003057; }
+  .hint { font-size: 13px; color: #6a7a8a; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="board">
+  <div class="status" id="status">
+    <div class="who" id="who">Ken Bray - Visual Content</div>
+    <div>
+      <div class="label" id="label">Open</div>
+      <div class="sub" id="sub">Happy to take new requests.</div>
+    </div>
+    <div>
+      <div class="meter" id="meter">
+        <div class="seg"></div><div class="seg"></div><div class="seg"></div><div class="seg"></div>
+      </div>
+      <div class="meter-cap"><span>Capacity</span><span id="pct">25% booked</span></div>
+    </div>
+    <div class="gear" id="gear">&#9881;</div>
+  </div>
+
+  <div class="info">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date" id="date"></div>
+
+    <div class="block">
+      <div class="k">Working on now</div>
+      <ul class="focus" id="focus"></ul>
+    </div>
+
+    <div class="row">
+      <div class="block">
+        <div class="k">In the queue</div>
+        <div class="v big" id="queue">0</div>
+      </div>
+      <div class="block">
+        <div class="k">New requests start</div>
+        <div class="v" id="next">Today</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <div id="note">New work? Please email it with a due date so I can schedule it.</div>
+      <div class="updated" id="updated"></div>
+    </div>
+  </div>
+</div>
+
+<div class="editor" id="editor">
+  <div class="panel">
+    <h2>Update my status</h2>
+
+    <label>Capacity level</label>
+    <div class="levels" id="levels"></div>
+
+    <label for="f-focus">Working on now (one per line, up to 3)</label>
+    <textarea id="f-focus"></textarea>
+
+    <div class="half">
+      <div>
+        <label for="f-queue">Requests in queue</label>
+        <div class="stepper">
+          <button type="button" id="q-minus">&minus;</button>
+          <input id="f-queue" type="number" min="0" pattern="[0-9]*">
+          <button type="button" id="q-plus">+</button>
+        </div>
+      </div>
+      <div>
+        <label for="f-next">New requests start</label>
+        <input id="f-next" type="date">
+        <div class="hint">Leave blank to show "Today".</div>
+      </div>
+    </div>
+
+    <label for="f-note">Message to visitors</label>
+    <textarea id="f-note"></textarea>
+
+    <label for="f-who">Name line</label>
+    <input id="f-who" type="text">
+
+    <div class="actions">
+      <button class="btn cancel" type="button" id="cancel">Cancel</button>
+      <button class="btn save" type="button" id="save">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var LEVELS = [
+    { id: 'open',  label: 'Open',          color: '#1E9E5A', segs: 1, pct: '25% booked',  sub: 'Happy to take new requests. Normal turnaround.' },
+    { id: 'steady',label: 'Steady',        color: '#2F7FC1', segs: 2, pct: '50% booked',  sub: 'Busy but taking requests. Give me a little lead time.' },
+    { id: 'full',  label: 'At Capacity',   color: '#E08A00', segs: 3, pct: '90% booked',  sub: 'New requests go into the queue. Expect longer turnaround.' },
+    { id: 'over',  label: 'Overloaded',    color: '#D7263D', segs: 4, pct: '100%+ booked', sub: 'Urgent and time-sensitive items only, please. Everything else is queued.' },
+    { id: 'focus', label: 'Heads Down',    color: '#6B3FA0', segs: 4, pct: 'Deadline mode', sub: 'On a deadline. Please email instead of stopping in.' },
+    { id: 'away',  label: 'Out',           color: '#55606B', segs: 0, pct: 'Away',         sub: 'Out of the office or on a shoot. Email me and I will follow up.' }
+  ];
+
+  var KEY = 'benny-workload-v5';
+  var DEFAULTS = {
+    level: 'focus',
+    focus: 'Milestone anniversary videos (party 12/12)\n19 referral interviews to go\nFeature + podcast edits',
+    queue: 18,
+    next: '2026-12-14',
+    note: 'Deadline mode until the Dec 12 holiday party. New work? Please email it with a due date and I will schedule it after 12/14. Teams is for quick questions only. Thanks!',
+    who: 'Ken Bray - Visual Content',
+    updated: new Date().getTime()
+  };
+
+  function now() { return new Date().getTime(); }
+
+  function load() {
+    try {
+      var raw = window.localStorage.getItem(KEY);
+      if (raw) {
+        var s = JSON.parse(raw), k;
+        for (k in DEFAULTS) { if (!(k in s)) s[k] = DEFAULTS[k]; }
+        return s;
+      }
+    } catch (e) {}
+    var d = {}, j; for (j in DEFAULTS) d[j] = DEFAULTS[j]; return d;
+  }
+  function store(s) { try { window.localStorage.setItem(KEY, JSON.stringify(s)); } catch (e) {} }
+
+  var state = load();
+  var $ = function (id) { return document.getElementById(id); };
+
+  function findLevel(id) {
+    for (var i = 0; i < LEVELS.length; i++) if (LEVELS[i].id === id) return LEVELS[i];
+    return LEVELS[0];
+  }
+  function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  var DAYS_L = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONTHS_L = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  function fmtNext(v) {
+    if (!v) return 'Today';
+    var p = v.split('-'); if (p.length !== 3) return v;
+    var d = new Date(+p[0], +p[1] - 1, +p[2]);
+    var today = new Date(); today.setHours(0, 0, 0, 0);
+    var diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+    if (diff <= 0) return 'Today';
+    if (diff === 1) return 'Tomorrow';
+    return DAYS[d.getDay()] + ', ' + MONTHS[d.getMonth()] + ' ' + d.getDate() + '<br><small>' + diff + ' days out</small>';
+  }
+
+  function ago(ts) {
+    var m = Math.floor((now() - ts) / 60000);
+    if (m < 1) return 'just now';
+    if (m < 60) return m + ' min ago';
+    var h = Math.floor(m / 60);
+    if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago');
+    var d = Math.floor(h / 24);
+    return d + (d === 1 ? ' day ago' : ' days ago');
+  }
+
+  function render() {
+    var L = findLevel(state.level);
+    $('status').style.background = L.color;
+    $('label').innerHTML = esc(L.label);
+    $('sub').innerHTML = esc(L.sub);
+    $('pct').innerHTML = esc(L.pct);
+    $('who').innerHTML = esc(state.who);
+    var segs = $('meter').children;
+    for (var i = 0; i < segs.length; i++) segs[i].className = 'seg' + (i < L.segs ? ' on' : '');
+
+    var items = String(state.focus).split('\n'), html = '', n = 0;
+    for (var j = 0; j < items.length && n < 3; j++) {
+      var t = items[j].replace(/^\s+|\s+$/g, '');
+      if (t) { html += '<li>' + esc(t) + '</li>'; n++; }
+    }
+    $('focus').innerHTML = html || '<li>Catching up</li>';
+    $('queue').innerHTML = esc(state.queue);
+    $('next').innerHTML = fmtNext(state.next);
+    $('note').innerHTML = esc(state.note);
+    tick();
+  }
+
+  function tick() {
+    var d = new Date(), h = d.getHours(), m = d.getMinutes();
+    var ap = h >= 12 ? 'PM' : 'AM', h12 = h % 12 || 12;
+    $('clock').innerHTML = h12 + ':' + (m < 10 ? '0' : '') + m + ' <span style="font-size:3.4vh;opacity:.7">' + ap + '</span>';
+    $('date').innerHTML = DAYS_L[d.getDay()] + ', ' + MONTHS_L[d.getMonth()] + ' ' + d.getDate();
+    $('updated').innerHTML = 'Status updated ' + ago(state.updated);
+  }
+
+  var draftLevel = state.level;
+  function buildLevels() {
+    var html = '';
+    for (var i = 0; i < LEVELS.length; i++) {
+      var L = LEVELS[i];
+      html += '<div class="lvl' + (L.id === draftLevel ? ' sel' : '') + '" data-id="' + L.id + '" style="background:' + L.color + '">' + esc(L.label) + '</div>';
+    }
+    $('levels').innerHTML = html;
+  }
+  $('levels').addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && el !== this && !el.getAttribute('data-id')) el = el.parentNode;
+    if (el && el.getAttribute && el.getAttribute('data-id')) { draftLevel = el.getAttribute('data-id'); buildLevels(); }
+  }, false);
+
+  function openEditor() {
+    draftLevel = state.level;
+    buildLevels();
+    $('f-focus').value = state.focus;
+    $('f-queue').value = state.queue;
+    $('f-next').value = state.next;
+    $('f-note').value = state.note;
+    $('f-who').value = state.who;
+    $('editor').className = 'editor open';
+  }
+  function closeEditor() { $('editor').className = 'editor'; }
+
+  $('gear').addEventListener('click', openEditor, false);
+  $('cancel').addEventListener('click', closeEditor, false);
+  $('q-minus').addEventListener('click', function () { var v = parseInt($('f-queue').value, 10) || 0; $('f-queue').value = Math.max(0, v - 1); }, false);
+  $('q-plus').addEventListener('click', function () { var v = parseInt($('f-queue').value, 10) || 0; $('f-queue').value = v + 1; }, false);
+  $('save').addEventListener('click', function () {
+    state.level = draftLevel;
+    state.focus = $('f-focus').value;
+    state.queue = Math.max(0, parseInt($('f-queue').value, 10) || 0);
+    state.next = $('f-next').value;
+    state.note = $('f-note').value;
+    state.who = $('f-who').value || DEFAULTS.who;
+    state.updated = now();
+    store(state);
+    closeEditor();
+    render();
+  }, false);
+
+  render();
+  setInterval(tick, 15000);
+  setInterval(render, 600000);
+})();
+</script>
+</body>
+</html>
